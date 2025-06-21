@@ -1,0 +1,63 @@
+name: unbound + pihole - Build
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+
+env:
+  IMAGE_NAME: ghcr.io/${{ github.repository_owner }}/unbound-pihole
+
+jobs:
+
+  push:
+    name: Build and Scan
+    runs-on: ubuntu-latest
+    permissions:
+      packages: write
+      contents: read
+      security-events: write
+      
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set Variables
+        run: |
+          VER=$(cat pihole-docker.version)
+          echo "PIHOLE_VERSION=$VER" >> $GITHUB_ENV
+          echo "FULL_IMAGE_NAME=$IMAGE_NAME:$VER" >> $GITHUB_ENV
+
+      - name: Set up Docker
+        uses: docker/setup-docker-action@v4
+        with:
+          daemon-config: |
+            {
+              "debug": true,
+              "features": {
+                "containerd-snapshotter": true
+              }
+            }
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          platforms: linux/amd64,linux/arm64
+          load: true
+          tags: ${{env.FULL_IMAGE_NAME}}
+          build-args: PIHOLE_VERSION=${{env.PIHOLE_VERSION}}
+
+      - name: Docker Image Info
+        run: |
+          docker image ls
+
+      - name: Scan Image via Anchore Grype
+        uses: anchore/scan-action@v6
+        id: scan
+        with:
+          image: ${{ env.FULL_IMAGE_NAME }}
+          fail-build: false
+          output-format: table
