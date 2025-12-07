@@ -55,9 +55,10 @@ jobs:
           docker image ls
 
       - name: Scan Image via Anchore Grype
-        uses: anchore/scan-action@v6
+        uses: anchore/scan-action@v7
         id: scan
         with:
           image: ${{ env.FULL_IMAGE_NAME }}
           fail-build: false
           output-format: table
+
